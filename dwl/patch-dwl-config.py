@@ -110,7 +110,7 @@ src = re.sub(r"static const Rule rules\[\] = \{.*?\n\};", rules, src, count=1, f
 # Keyboard layout
 xkb = '''static const struct xkb_rule_names xkb_rules = {
 \t.layout = "us",
-\t.options = "caps:escape,altwin:swap_lalt_lwin",
+\t.options = "caps:escape",
 };'''
 src = re.sub(
     r"static const struct xkb_rule_names xkb_rules = \{.*?\n\};",

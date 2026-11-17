@@ -53,7 +53,7 @@ static const MonitorRule monrules[] = {
 /* keyboard */
 static const struct xkb_rule_names xkb_rules = {
 	.layout = "us",
-	.options = "caps:escape,altwin:swap_lalt_lwin",
+	.options = "caps:escape",
 };
 
 static const int repeat_rate = 25;
