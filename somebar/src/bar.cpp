@@ -246,14 +246,24 @@ void Bar::renderTags()
 			tag.state & TagState::Active ? colorActive : colorInactive,
 			tag.state & TagState::Urgent);
 		renderComponent(tag.component);
-		auto indicators = std::min(tag.numClients, static_cast<int>(_bufs->height/2));
-		for (auto ind = 0; ind < indicators; ind++) {
-			auto w = ind == tag.focusedClient ? 7 : 1;
-			cairo_move_to(_painter, tag.component.x, ind*2+0.5);
-			cairo_rel_line_to(_painter, w, 0);
-			cairo_close_path(_painter);
-			cairo_set_line_width(_painter, 1);
-			cairo_stroke(_painter);
+
+		if (tag.numClients == 0)
+			continue;
+
+		beginFg();
+		auto cellWidth = tag.component.width() + paddingX*2;
+		if (tag.state & TagState::Active) {
+			/* Selected tag: a thick line across the top of the cell. */
+			cairo_rectangle(_painter, tag.component.x, 0,
+				cellWidth, indicatorHeight);
+			cairo_fill(_painter);
+		} else {
+			/* Occupied but not selected: a dot at the top of the cell. */
+			double cx = tag.component.x + cellWidth / 2.0;
+			double cy = indicatorDotRadius + 0.5;
+			cairo_arc(_painter, cx, cy, indicatorDotRadius, 0,
+				2 * 3.14159265358979323846);
+			cairo_fill(_painter);
 		}
 	}
 }

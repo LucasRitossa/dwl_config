@@ -20,6 +20,11 @@ constexpr bool topbar = false;
 constexpr int paddingX = 10;
 constexpr int paddingY = 2;
 
+/* Tag indicators. Selected tags get a thick line across the top of the cell,
+ * occupied tags that are not selected get a dot. */
+constexpr int indicatorHeight = 3;
+constexpr int indicatorDotRadius = 2;
+
 // See https://docs.gtk.org/Pango/type_func.FontDescription.from_string.html
 constexpr const char* font = "JetBrainsMono Nerd Font 14";
 

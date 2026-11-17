@@ -105,6 +105,15 @@ still the documented upgrade path if `wtype` ever gets in the way.
 JetBrainsMono Nerd Font 14, **bottom** bar). `config.def.hpp` is the upstream
 reference plus that contrib patch.
 
+Tag indicators (`src/bar.cpp`) replace upstream's 1px client ticks:
+
+- the **selected** tag, if it has windows, gets a thick line across the top of
+  its cell — `indicatorHeight`, default 3px
+- a tag that is **occupied but not selected** gets a dot at the top of its cell —
+  `indicatorDotRadius`, default 2px
+
+Both are in `config.hpp`; rebuild somebar after changing them.
+
 ```sh
 cd somebar
 meson setup build --prefix="$HOME/.local"
