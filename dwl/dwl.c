@@ -1,6 +1,7 @@
 /*
  * See LICENSE file for copyright and license details.
  */
+#include <fcntl.h>
 #include <getopt.h>
 #include <libinput.h>
 #include <limits.h>
@@ -9,6 +10,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/wait.h>
 #include <time.h>
 #include <unistd.h>
@@ -261,6 +263,7 @@ typedef struct {
 
 /* function declarations */
 static void applybounds(Client *c, struct wlr_box *bbox);
+static void applylive(void);
 static void applyrules(Client *c);
 static void arrange(Monitor *m);
 static void arrangelayer(Monitor *m, struct wl_list *list,
@@ -299,6 +302,7 @@ static void destroylayersurfacenotify(struct wl_listener *listener, void *data);
 static void destroylock(SessionLock *lock, int unlocked);
 static void destroylocksurface(struct wl_listener *listener, void *data);
 static void destroynotify(struct wl_listener *listener, void *data);
+static void destroypointer(struct wl_listener *listener, void *data);
 static void destroypointerconstraint(struct wl_listener *listener, void *data);
 static void destroysessionlock(struct wl_listener *listener, void *data);
 static void destroykeyboardgroup(struct wl_listener *listener, void *data);
@@ -317,6 +321,10 @@ static void keypress(struct wl_listener *listener, void *data);
 static void keypressmod(struct wl_listener *listener, void *data);
 static int keyrepeat(void *data);
 static void killclient(const Arg *arg);
+static void liveinit(void);
+static void liveload(void);
+static void liveset(const char *key, const char *val, int lineno);
+static char *livetrim(char *s);
 static void locksession(struct wl_listener *listener, void *data);
 static void mapnotify(struct wl_listener *listener, void *data);
 static void maximizenotify(struct wl_listener *listener, void *data);
@@ -334,6 +342,8 @@ static void pointerfocus(Client *c, LayerSurface* l, struct wlr_surface *surface
 static void printstatus(void);
 static void powermgrsetmode(struct wl_listener *listener, void *data);
 static void quit(const Arg *arg);
+static void reloadconfig(const Arg *arg);
+static int reloadfd(int fd, uint32_t mask, void *data);
 static void rendermon(struct wl_listener *listener, void *data);
 static void requestdecorationmode(struct wl_listener *listener, void *data);
 static void requeststartdrag(struct wl_listener *listener, void *data);
@@ -431,6 +441,19 @@ static struct wlr_box sgeom;
 static struct wl_list mons;
 static Monitor *selmon;
 static int consumed[KEY_MAX + 1];
+
+/* Hot reload state: liveinit() seeds these from config.h, liveload() overlays
+ * live.conf, applylive() pushes them into libinput and the keyboard group. */
+static int live_ready;
+static int live_repeat_rate, live_repeat_delay;
+static double live_accel_speed;
+static enum libinput_config_accel_profile live_accel_profile;
+static char live_layout[64], live_options[128];
+static char applied_layout[64], applied_options[128];
+#define NPOINTERS 16
+static struct wlr_pointer *pointers[NPOINTERS];
+static struct wl_listener pointer_destroy[NPOINTERS];
+static int reload_fds[2] = {-1, -1};
 
 /* global event handlers */
 static struct wl_listener cursor_axis = {.notify = axisnotify};
@@ -1060,6 +1083,8 @@ createkeyboardgroup(void)
 	struct xkb_context *context;
 	struct xkb_keymap *keymap;
 
+	liveinit();
+
 	group->wlr_group = wlr_keyboard_group_create();
 	group->wlr_group->data = group;
 
@@ -1073,7 +1098,7 @@ createkeyboardgroup(void)
 	xkb_keymap_unref(keymap);
 	xkb_context_unref(context);
 
-	wlr_keyboard_set_repeat_info(&group->wlr_group->keyboard, repeat_rate, repeat_delay);
+	wlr_keyboard_set_repeat_info(&group->wlr_group->keyboard, live_repeat_rate, live_repeat_delay);
 
 	/* Set up listeners for keyboard events */
 	LISTEN(&group->wlr_group->keyboard.events.key, &group->key, keypress);
@@ -1247,6 +1272,10 @@ void
 createpointer(struct wlr_pointer *pointer)
 {
 	struct libinput_device *device;
+	size_t i;
+
+	liveinit();
+
 	if (wlr_input_device_is_libinput(&pointer->base)
 			&& (device = wlr_libinput_get_device_handle(&pointer->base))) {
 
@@ -1279,12 +1308,23 @@ createpointer(struct wlr_pointer *pointer)
 			libinput_device_config_send_events_set_mode(device, send_events_mode);
 
 		if (libinput_device_config_accel_is_available(device)) {
-			libinput_device_config_accel_set_profile(device, accel_profile);
-			libinput_device_config_accel_set_speed(device, accel_speed);
+			libinput_device_config_accel_set_profile(device, live_accel_profile);
+			libinput_device_config_accel_set_speed(device, live_accel_speed);
 		}
 	}
 
 	wlr_cursor_attach_input_device(cursor, &pointer->base);
+
+	/* Remember the device so applylive() can re-apply accel on reload; the
+	 * destroy listener keeps the slot from dangling after a hotplug. */
+	for (i = 0; i < NPOINTERS; i++)
+		if (!pointers[i])
+			break;
+	if (i < NPOINTERS) {
+		pointers[i] = pointer;
+		pointer_destroy[i].notify = destroypointer;
+		wl_signal_add(&pointer->base.events.destroy, &pointer_destroy[i]);
+	}
 }
 
 void
@@ -1460,6 +1500,20 @@ destroynotify(struct wl_listener *listener, void *data)
 		}
 	}
 	free(c);
+}
+
+void
+destroypointer(struct wl_listener *listener, void *data)
+{
+	size_t i;
+
+	for (i = 0; i < NPOINTERS; i++) {
+		if (&pointer_destroy[i] != listener)
+			continue;
+		wl_list_remove(&pointer_destroy[i].link);
+		pointers[i] = NULL;
+		break;
+	}
 }
 
 void
@@ -1695,8 +1749,194 @@ handlesig(int signo)
 {
 	if (signo == SIGCHLD)
 		while (waitpid(-1, NULL, WNOHANG) > 0);
-	else if (signo == SIGINT || signo == SIGTERM)
+	else if (signo == SIGHUP) {
+		/* Signal handlers may only run async-signal-safe code: wake the event
+		 * loop through the pipe and let reloadfd() apply the new settings. */
+		char c = 1;
+		if (reload_fds[1] >= 0)
+			write(reload_fds[1], &c, 1);
+	} else if (signo == SIGINT || signo == SIGTERM)
 		quit(NULL);
+}
+
+void
+liveinit(void)
+{
+	if (live_ready)
+		return;
+	live_ready = 1;
+	live_repeat_rate = repeat_rate;
+	live_repeat_delay = repeat_delay;
+	live_accel_speed = accel_speed;
+	live_accel_profile = accel_profile;
+	snprintf(live_layout, sizeof(live_layout), "%s",
+			xkb_rules.layout ? xkb_rules.layout : "");
+	snprintf(live_options, sizeof(live_options), "%s",
+			xkb_rules.options ? xkb_rules.options : "");
+}
+
+char *
+livetrim(char *s)
+{
+	char *end = s + strlen(s);
+
+	while (*s == ' ' || *s == '\t')
+		s++;
+	while (end > s && (end[-1] == ' ' || end[-1] == '\t'
+			|| end[-1] == '\n' || end[-1] == '\r'))
+		*--end = '\0';
+	return s;
+}
+
+void
+liveset(const char *key, const char *val, int lineno)
+{
+	char *end;
+	long l;
+	double d;
+
+	if (!strcmp(key, "repeat_rate") || !strcmp(key, "repeat_delay")) {
+		l = strtol(val, &end, 10);
+		if (!*val || *end || l < 0 || l > 1000) {
+			wlr_log(WLR_ERROR, "live.conf:%d: bad %s '%s'", lineno, key, val);
+			return;
+		}
+		if (!strcmp(key, "repeat_rate"))
+			live_repeat_rate = (int)l;
+		else
+			live_repeat_delay = (int)l;
+	} else if (!strcmp(key, "accel_speed")) {
+		d = strtod(val, &end);
+		if (!*val || *end || d < -1.0 || d > 1.0) {
+			wlr_log(WLR_ERROR, "live.conf:%d: accel_speed must be -1..1", lineno);
+			return;
+		}
+		live_accel_speed = d;
+	} else if (!strcmp(key, "accel_profile")) {
+		if (!strcmp(val, "flat"))
+			live_accel_profile = LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT;
+		else if (!strcmp(val, "adaptive"))
+			live_accel_profile = LIBINPUT_CONFIG_ACCEL_PROFILE_ADAPTIVE;
+		else
+			wlr_log(WLR_ERROR, "live.conf:%d: accel_profile must be flat or adaptive", lineno);
+	} else if (!strcmp(key, "xkb_layout")) {
+		snprintf(live_layout, sizeof(live_layout), "%s", val);
+	} else if (!strcmp(key, "xkb_options")) {
+		snprintf(live_options, sizeof(live_options), "%s", val);
+	} else {
+		wlr_log(WLR_ERROR, "live.conf:%d: unknown key '%s'", lineno, key);
+	}
+}
+
+void
+liveload(void)
+{
+	const char *env;
+	char line[512], path[PATH_MAX];
+	char *key, *val, *eq;
+	FILE *fp;
+	int lineno = 0;
+
+	env = getenv("DWL_LIVE_CONF");
+	if (env && *env)
+		snprintf(path, sizeof(path), "%s", env);
+	else if ((env = getenv("HOME")))
+		snprintf(path, sizeof(path), "%s/.config/dwl_config/dwl/live.conf", env);
+	else
+		return;
+
+	/* The file is optional: without it the compiled config.h values stand. */
+	if (!(fp = fopen(path, "r")))
+		return;
+
+	while (fgets(line, sizeof(line), fp)) {
+		lineno++;
+		line[strcspn(line, "#")] = '\0';
+		if (!*(key = livetrim(line)))
+			continue;
+		if (!(eq = strchr(key, '='))) {
+			wlr_log(WLR_ERROR, "live.conf:%d: expected key = value", lineno);
+			continue;
+		}
+		*eq = '\0';
+		val = livetrim(eq + 1);
+		liveset(livetrim(key), val, lineno);
+	}
+	fclose(fp);
+}
+
+void
+applylive(void)
+{
+	struct xkb_rule_names names;
+	struct xkb_keymap *keymap;
+	struct xkb_context *context;
+	struct wlr_keyboard *kbd;
+	struct libinput_device *device;
+	size_t i;
+
+	liveinit();
+	liveload();
+
+	if (kb_group) {
+		kbd = &kb_group->wlr_group->keyboard;
+		wlr_keyboard_set_repeat_info(kbd, live_repeat_rate, live_repeat_delay);
+		/* Only rebuild the keymap when the user actually changed it: the
+		 * rebuild re-sends the keymap to every client. */
+		if (strcmp(live_layout, applied_layout) || strcmp(live_options, applied_options)) {
+			names.layout = live_layout;
+			names.model = xkb_rules.model;
+			names.rules = xkb_rules.rules;
+			names.variant = xkb_rules.variant;
+			names.options = live_options;
+			context = xkb_context_new(XKB_CONTEXT_NO_FLAGS);
+			keymap = context ? xkb_keymap_new_from_names(context, &names,
+					XKB_KEYMAP_COMPILE_NO_FLAGS) : NULL;
+			if (keymap) {
+				wlr_keyboard_set_keymap(kbd, keymap);
+				xkb_keymap_unref(keymap);
+				snprintf(applied_layout, sizeof(applied_layout), "%s", live_layout);
+				snprintf(applied_options, sizeof(applied_options), "%s", live_options);
+			} else {
+				wlr_log(WLR_ERROR, "live: cannot compile keymap for layout '%s' options '%s'",
+						live_layout, live_options);
+			}
+			if (context)
+				xkb_context_unref(context);
+		}
+	}
+
+	for (i = 0; i < NPOINTERS; i++) {
+		if (!pointers[i]
+				|| !wlr_input_device_is_libinput(&pointers[i]->base)
+				|| !(device = wlr_libinput_get_device_handle(&pointers[i]->base))
+				|| !libinput_device_config_accel_is_available(device))
+			continue;
+		libinput_device_config_accel_set_profile(device, live_accel_profile);
+		libinput_device_config_accel_set_speed(device, live_accel_speed);
+	}
+
+	wlr_log(WLR_DEBUG, "live: repeat %d/%d, accel %.2f (%s), layout '%s' options '%s'",
+			live_repeat_rate, live_repeat_delay, live_accel_speed,
+			live_accel_profile == LIBINPUT_CONFIG_ACCEL_PROFILE_FLAT ? "flat" : "adaptive",
+			live_layout, live_options);
+}
+
+int
+reloadfd(int fd, uint32_t mask, void *data)
+{
+	char buf[64];
+
+	while (read(fd, buf, sizeof(buf)) > 0)
+		;
+	applylive();
+	return 0;
+}
+
+void
+reloadconfig(const Arg *arg)
+{
+	applylive();
 }
 
 void
@@ -2622,7 +2862,7 @@ setsel(struct wl_listener *listener, void *data)
 void
 setup(void)
 {
-	int drm_fd, i, sig[] = {SIGCHLD, SIGINT, SIGTERM, SIGPIPE};
+	int drm_fd, i, sig[] = {SIGHUP, SIGCHLD, SIGINT, SIGTERM, SIGPIPE};
 	struct sigaction sa = {.sa_flags = SA_RESTART, .sa_handler = handlesig};
 	sigemptyset(&sa.sa_mask);
 
@@ -2635,6 +2875,18 @@ setup(void)
 	 * clients from the Unix socket, managing Wayland globals, and so on. */
 	dpy = wl_display_create();
 	event_loop = wl_display_get_event_loop(dpy);
+
+	/* SIGHUP reloads live.conf. The pipe is what keeps handlesig() free of
+	 * non-async-signal-safe calls. */
+	if (pipe(reload_fds) == 0) {
+		fcntl(reload_fds[0], F_SETFL, O_NONBLOCK);
+		fcntl(reload_fds[1], F_SETFL, O_NONBLOCK);
+		wl_event_loop_add_fd(event_loop, reload_fds[0], WL_EVENT_READABLE,
+				reloadfd, NULL);
+	} else {
+		reload_fds[0] = reload_fds[1] = -1;
+		wlr_log(WLR_ERROR, "dwl: cannot create reload pipe");
+	}
 
 	/* The backend is a wlroots feature which abstracts the underlying input and
 	 * output hardware. The autocreate option will choose the most suitable
@@ -2827,6 +3079,10 @@ setup(void)
 
 	kb_group = createkeyboardgroup();
 	wl_list_init(&kb_group->destroy.link);
+
+	/* Apply live.conf on top of the compiled config before any client or
+	 * device arrives. */
+	applylive();
 
 	output_mgr = wlr_output_manager_v1_create(dpy);
 	wl_signal_add(&output_mgr->events.apply, &output_mgr_apply);
