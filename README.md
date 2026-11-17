@@ -60,6 +60,10 @@ Source changes in `dwl.c`:
   `dwm-actualfullscreen` patch carried in `~/.config/dwm_config`.)
 - While a window is fullscreen, `Super+j` / `Super+k` cycles windows and moves
   fullscreen to the newly focused window.
+- `focusmon` (bound to `Super+M`, and `Super+,` / `Super+.`) warps the pointer to
+  the center of the newly focused monitor, so the cursor follows the monitor
+  switch. `Super+M` moves right and wraps from the right-hand monitor back to the
+  left one, so it toggles between the two outputs.
 - `Super+Shift+U` unfloats the selected window. If it is fullscreen, it also
   leaves fullscreen and returns to the tiling layout. (Existing
   `Super+Shift+Space` still toggles floating.)

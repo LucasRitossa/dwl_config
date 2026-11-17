@@ -1597,6 +1597,7 @@ focusclient(Client *c, int lift)
 void
 focusmon(const Arg *arg)
 {
+	Monitor *oldmon = selmon;
 	int i = 0, nmons = wl_list_length(&mons);
 	if (nmons) {
 		do /* don't switch to disabled mons */
@@ -1604,6 +1605,11 @@ focusmon(const Arg *arg)
 		while (!selmon->wlr_output->enabled && i++ < nmons);
 	}
 	focusclient(focustop(selmon), 1);
+
+	/* Keep the pointer with the focus: center it on the new monitor */
+	if (selmon != oldmon && selmon->wlr_output->enabled)
+		wlr_cursor_warp(cursor, NULL, selmon->m.x + selmon->m.width / 2,
+				selmon->m.y + selmon->m.height / 2);
 }
 
 void
