@@ -145,26 +145,29 @@ Runtime: `xorg-xwayland`, `alacritty`, `fuzzel`, `grim`, `slurp`, `wl-clipboard`
 `swaylock`, `papirus-icon-theme`, `wlr-randr`, `mako`, `swaybg`, `wtype`
 (clickable tags), `xdg-desktop-portal-wlr`, `playerctl`, `brightnessctl`.
 
-## Booting into dwl (not enabled yet)
+## Boot
 
-The machine still boots to a TTY and starts `dwm` with `startx`. dwl is installed
-and launched manually from a TTY. To boot straight into dwl instead, three small
-changes outside this repo:
+The machine boots into dwl on tty1. Two changes outside this repo make that
+happen:
 
 1. `/etc/conf.d/agetty.tty1`: `agetty_options="--autologin luke"`
-2. `~/.zprofile`, guarded so a crash drops to a shell instead of looping:
+2. `~/.zprofile`, after the `PATH` line (the guard matters — without
+   `DWL_ATTEMPTED` a crashing compositor would relaunch forever and you'd never
+   see a shell):
 
    ```zsh
-   if [ "$(tty)" = /dev/tty1 ] && [ -z "$DWL_ATTEMPTED" ] && [ -z "$WAYLAND_DISPLAY" ]; then
+   if [[ $TTY == /dev/tty1 && -z $DWL_ATTEMPTED && -z $WAYLAND_DISPLAY ]]; then
        export DWL_ATTEMPTED=1
-       dwl-run
+       "$HOME/.local/bin/dwl-run"
    fi
    ```
 
-3. Keep `agetty.tty2`–`tty6` as-is: they stay password-protected, so
-   `Ctrl+Alt+F2` → login → `startx` still reaches dwm.
+tty2–tty6 stay password-protected, so `Ctrl+Alt+F2` → login → `startx` still
+reaches dwm. Note that `Ctrl+Alt+F1` now returns to dwl itself, since dwl owns
+tty1.
 
-Reverse it by clearing `agetty_options`.
+Revert with `sudo sed -i 's/^agetty_options=.*/#agetty_options=""/' /etc/conf.d/agetty.tty1` (a backup of the original file is at
+`/etc/conf.d/agetty.tty1.bak`) and by removing the block above.
 
 ## Known limits of this compositor
 
