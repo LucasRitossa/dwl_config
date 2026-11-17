@@ -27,10 +27,12 @@ pgrep -x wireplumber    >/dev/null 2>&1 || wireplumber    >/dev/null 2>&1 &
 
 # --- session -----------------------------------------------------------------
 # dwl's -s command owns dwl's stdout, and somebar reads that stream as its bar
-# status. Everything started here must therefore redirect stdout, or its output
-# gets parsed as tag/title lines. somebar must be the last thing exec'd so it
-# keeps the stream.
-DWL_STARTUP='wlr-randr --output DP-1 --mode 1920x1080@239.76 >/dev/null 2>&1
+# status. Everything started here must therefore keep stdout clean: the mode
+# change is logged to a file so a failure stays diagnosable instead of silently
+# leaving DP-1 at its 60Hz preferred mode. somebar must be the last thing exec'd
+# so it keeps the stream.
+mkdir -p "$HOME/.local/state"
+DWL_STARTUP='wlr-randr --output DP-1 --mode 1920x1080@239.76 >>"$HOME/.local/state/dwl-run.log" 2>&1
 mako >/dev/null 2>&1 &
 swaybg -i "$HOME/Images/Backgrounds/autumn-mountains.jpg" -m fill >/dev/null 2>&1 &
 /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 >/dev/null 2>&1 &
