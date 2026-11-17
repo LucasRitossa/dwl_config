@@ -47,6 +47,8 @@ Desktop-specific choices:
   this is a desktop: `dwl.c` applies every one of those symbols to each libinput
   pointer device, so removing them fails the build. They report unsupported for a
   mouse, so only `accel_profile`/`accel_speed` actually matter here.
+- **Keyboard repeat** is `repeat_rate 50` / `repeat_delay 300`, the Wayland
+  equivalent of the old X11 `xset r rate 300 50` (upstream's 25/600 felt slow).
 - Brightness keys and the `powermode` bindings are gone: this machine has no
   `/sys/class/backlight` and no battery.
 

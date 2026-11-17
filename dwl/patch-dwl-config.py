@@ -20,6 +20,16 @@ src = src.replace("COLOR(0x444444ff)", "COLOR(0x282828ff)")
 src = src.replace("COLOR(0x005577ff)", "COLOR(0x30b27aff)")
 src = src.replace("COLOR(0xff0000ff)", "COLOR(0xfb4934ff)")
 
+# Keyboard repeat: same feel as the X11 `xset r rate 300 50`.
+src = src.replace(
+    "static const int repeat_rate = 25;",
+    "static const int repeat_rate = 50;",
+)
+src = src.replace(
+    "static const int repeat_delay = 600;",
+    "static const int repeat_delay = 300;",
+)
+
 # Pointer devices: dwl.c applies all of these to every libinput pointer, so the
 # symbols are mandatory on a desktop too. Kept at upstream values (inert for a
 # mouse); the block is only annotated.
