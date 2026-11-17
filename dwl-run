@@ -1,0 +1,39 @@
+#!/bin/sh
+# dwl session launcher
+#
+# Starts a dwl session with the environment this desktop needs, plus somebar on
+# dwl's status stream. Run it from a TTY (or via wayland-sessions/dwl.desktop).
+#
+# Why this exists instead of a bare `dwl` call:
+#   - Proton/Steam/Electron and Mozilla need the Wayland hints below to avoid
+#     silently falling back to Xwayland.
+#   - There is no systemd/elogind *user* session on Artix, so user services are
+#     started here rather than by a user unit.
+#   - dwl always picks the output's preferred mode, and DP-1's preferred mode is
+#     60Hz on a 240Hz panel, so the mode is set explicitly once dwl is up.
+
+# --- environment -------------------------------------------------------------
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=dwl
+export MOZ_ENABLE_WAYLAND=1                 # librewolf
+export ELECTRON_OZONE_PLATFORM_HINT=wayland # discord and other Electron apps
+export __GLX_VENDOR_LIBRARY_NAME=nvidia     # Xwayland GLX -> the 3070
+export LIBVA_DRIVER_NAME=nvidia             # VA-API decode for Xwayland apps
+
+# --- user services -----------------------------------------------------------
+pgrep -x pipewire       >/dev/null 2>&1 || pipewire       >/dev/null 2>&1 &
+pgrep -x pipewire-pulse >/dev/null 2>&1 || pipewire-pulse >/dev/null 2>&1 &
+pgrep -x wireplumber    >/dev/null 2>&1 || wireplumber    >/dev/null 2>&1 &
+
+# --- session -----------------------------------------------------------------
+# dwl's -s command owns dwl's stdout, and somebar reads that stream as its bar
+# status. Everything started here must therefore redirect stdout, or its output
+# gets parsed as tag/title lines. somebar must be the last thing exec'd so it
+# keeps the stream.
+DWL_STARTUP='wlr-randr --output DP-1 --mode 1920x1080@239.76 >/dev/null 2>&1
+mako >/dev/null 2>&1 &
+swaybg -i "$HOME/Images/Backgrounds/autumn-mountains.jpg" -m fill >/dev/null 2>&1 &
+/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 >/dev/null 2>&1 &
+exec somebar'
+
+exec dbus-run-session -- dwl -s "$DWL_STARTUP"
