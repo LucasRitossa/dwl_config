@@ -176,12 +176,34 @@ happen:
    fi
    ```
 
-tty2–tty6 stay password-protected, so `Ctrl+Alt+F2` → login → `startx` still
-reaches dwm. Note that `Ctrl+Alt+F1` now returns to dwl itself, since dwl owns
-tty1.
+tty2–tty6 stay password-protected. They are now plain recovery shells (there is
+no X11 session left to start): log in there to restart `dwl-run`, inspect a log,
+or fix the config. `Ctrl+Alt+F1` returns to dwl itself, since dwl owns tty1.
 
 Revert with `sudo sed -i 's/^agetty_options=.*/#agetty_options=""/' /etc/conf.d/agetty.tty1` (a backup of the original file is at
-`/etc/conf.d/agetty.tty1.bak`) and by removing the block above.
+`/etc/conf.d/agetty.tty1.bak`) and by removing the block above. Note that this
+reverts the *autologin*; it does not bring back X11 (see below).
+
+## X11
+
+There is no X server, no `startx` and no window manager on this machine: the
+whole X11 session stack was removed (`xorg-server` and its xephyr/xnest/xvfb
+variants, `xorg-xinit`, the `xorg-*` utilities and 75/100dpi fonts, `dmenu`,
+`sxhkd`, `picom`, `arandr`, `xdotool`, `xclip`, `feh`, `flameshot`, `xterm`,
+`xcompmgr`, the Xorg input/video drivers, the Xfce suite, `tigervnc`/`x11vnc`).
+
+What stays is what X11 *clients* need, and only that:
+
+| Package | Why |
+| --- | --- |
+| `xorg-xwayland` | Steam/Proton, wine, Discord and other X11-only clients |
+| `xorg-server-common`, `xorg-xkbcomp`, `xorg-setxkbmap`, `xorgproto` | dependencies of Xwayland |
+| `xorg-xrandr`, `xorg-xprop`, `xorg-fonts-encodings` | dependencies of `steam`, `lutris`, `umu-launcher`, `at-spi2-core` |
+
+Xwayland is spawned on demand by dwl on the first X11 client, so `DISPLAY=:0`
+appears inside the session only once something needs it. Verified after the
+purge with `DISPLAY=:0 xrandr --query`, which reported the real 3840x1080
+two-output layout.
 
 ## Known limits of this compositor
 
