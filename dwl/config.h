@@ -40,10 +40,14 @@ static const Layout layouts[] = {
  * https://gitlab.freedesktop.org/xorg/xserver/-/issues/899 */
 static const MonitorRule monrules[] = {
    /* name        mfact  nmaster scale layout       rotate/reflect                x    y
-    * example of a HiDPI laptop monitor:
-    { "eDP-1",    0.5f,  1,      2,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL,   -1,  -1 }, */
-	{ NULL,       0.55f, 1,      1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL,   -1,  -1 },
+    *
+    * Two 1920x1080 outputs: DP-1 (left, 240Hz panel) and HDMI-A-1 (right).
+    * Refresh rate is not configurable here -- dwl always picks the preferred
+    * mode, so dwl-run sets DP-1's 239.76Hz mode with wlr-randr. */
+	{ "DP-1",     0.55f, 1,      1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL,    0,   0 },
+	{ "HDMI-A-1", 0.55f, 1,      1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL, 1920,   0 },
 	/* default monitor rule: can be changed but cannot be eliminated; at least one monitor rule must exist */
+	{ NULL,       0.55f, 1,      1,    &layouts[0], WL_OUTPUT_TRANSFORM_NORMAL,   -1,  -1 },
 };
 
 /* keyboard */
@@ -55,7 +59,13 @@ static const struct xkb_rule_names xkb_rules = {
 static const int repeat_rate = 25;
 static const int repeat_delay = 600;
 
-/* Trackpad */
+/* Pointer devices.
+ *
+ * dwl.c applies every one of these to each libinput pointer device, so the
+ * symbols cannot be removed from the config on a desktop: the build fails on
+ * undefined identifiers. They are kept at upstream values and are inert for a
+ * mouse (tap/click/scroll-method settings report unsupported). Only
+ * accel_profile/accel_speed affect the mouse here. */
 static const int tap_to_click = 1;
 static const int tap_and_drag = 1;
 static const int drag_lock = 1;
@@ -120,17 +130,10 @@ static const Key keys[] = {
 	{ MODKEY,                    XKB_KEY_Return,      spawn,            {.v = termcmd} },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_r,           spawn,            SHCMD("alacritty -e htop") },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_b,           spawn,            SHCMD("alacritty -e pulsemixer") },
-	{ MODKEY,                    XKB_KEY_y,           spawn,            SHCMD("alacritty -e ncmpcpp") },
 	{ MODKEY,                    XKB_KEY_r,           spawn,            SHCMD("alacritty -e lf") },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_e,           spawn,            SHCMD("grim -g \"$(slurp)\" - | wl-copy") },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_d,           spawn,            SHCMD("discord") },
 	{ MODKEY,                    XKB_KEY_w,           spawn,            SHCMD("librewolf") },
-	{ MODKEY,                    XKB_KEY_period,      spawn,            SHCMD("mpc next") },
-	{ MODKEY,                    XKB_KEY_comma,       spawn,            SHCMD("mpc prev") },
-	{ MODKEY,                    XKB_KEY_p,           spawn,            SHCMD("mpc toggle") },
-	{ MODKEY,                    XKB_KEY_bracketleft, spawn,            SHCMD("mpc seek -10") },
-	{ MODKEY,                    XKB_KEY_bracketright,spawn,            SHCMD("mpc seek +10") },
-	{ MODKEY,                    XKB_KEY_b,           spawn,            SHCMD("somebar -c toggle selected") },
 
 	{ MODKEY,                    XKB_KEY_j,           focusstack,       {.i = +1} },
 	{ MODKEY,                    XKB_KEY_k,           focusstack,       {.i = -1} },
@@ -143,6 +146,7 @@ static const Key keys[] = {
 	{ MODKEY,                    XKB_KEY_space,       zoom,             {0} },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_space,       togglefloating,   {0} },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_u,           unfloat,          {0} },
+	{ MODKEY,                    XKB_KEY_Tab,         setlayout,        {0} },
 	{ MODKEY,                    XKB_KEY_0,           view,             {.ui = ~0} },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_0,           tag,              {.ui = ~0} },
 	{ MODKEY,                    XKB_KEY_comma,       focusmon,         {.i = WLR_DIRECTION_LEFT} },
@@ -152,7 +156,7 @@ static const Key keys[] = {
 	{ MODKEY,                    XKB_KEY_m,           focusmon,         {.i = WLR_DIRECTION_RIGHT} },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_m,           tagmon,           {.i = WLR_DIRECTION_RIGHT} },
 
-	/* media, brightness, lock, screenshots */
+	/* media, lock, screenshots */
 	{ 0, XKB_KEY_XF86AudioRaiseVolume,  spawn, SHCMD("pactl set-sink-volume @DEFAULT_SINK@ +5%") },
 	{ 0, XKB_KEY_XF86AudioLowerVolume,  spawn, SHCMD("pactl set-sink-volume @DEFAULT_SINK@ -5%") },
 	{ 0, XKB_KEY_XF86AudioMute,         spawn, SHCMD("pactl set-sink-mute @DEFAULT_SINK@ toggle") },
@@ -160,14 +164,8 @@ static const Key keys[] = {
 	{ 0, XKB_KEY_XF86AudioPlay,         spawn, SHCMD("playerctl play-pause") },
 	{ 0, XKB_KEY_XF86AudioNext,         spawn, SHCMD("playerctl next") },
 	{ 0, XKB_KEY_XF86AudioPrev,         spawn, SHCMD("playerctl previous") },
-	{ 0, XKB_KEY_XF86MonBrightnessUp,   spawn, SHCMD("brightnessctl set +5%") },
-	{ 0, XKB_KEY_XF86MonBrightnessDown, spawn, SHCMD("brightnessctl set 5%-") },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_l, spawn, SHCMD("swaylock -f") },
 	{ 0, XKB_KEY_Print, spawn, SHCMD("grim -g \"$(slurp)\" - | wl-copy") },
-
-	/* power mode (power-profiles-daemon): cycle saver -> balanced -> performance */
-	{ MODKEY,                    XKB_KEY_F4, spawn, SHCMD("powermode cycle") },
-	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_F4, spawn, SHCMD("powermode hold toggle") },
 
 	TAGKEYS(                     XKB_KEY_1,           0),
 	TAGKEYS(                     XKB_KEY_2,           1),
