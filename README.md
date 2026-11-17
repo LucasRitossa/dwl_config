@@ -89,32 +89,6 @@ python3 patch-dwl-config.py
 The script is kept in lockstep with `config.h`: running the two commands above
 reproduces the tracked file byte for byte. Edit both when changing the config.
 
-## Hot reload
-
-`dwl/live.conf` holds the settings that can change without restarting the
-compositor. Apply it with either:
-
-```sh
-kill -HUP "$(pidof dwl)"   # from any terminal
-```
-
-or `Super+Shift+F5`. Reload is instant and keeps every window open; the file is
-read once at startup too, so it overrides `config.h` without a rebuild. A
-missing key keeps the `config.h` value, and a malformed line is reported in
-`~/.local/state/dwl-run.log` without touching the running values.
-
-| Live (`live.conf`) | Needs rebuild + restart (`config.h`) |
-| --- | --- |
-| `repeat_rate`, `repeat_delay` | key bindings (`keys[]`) |
-| `accel_speed`, `accel_profile` | layouts, `rules[]`, monitor rules |
-| `xkb_layout`, `xkb_options` | colours, `borderpx`, gaps/mfact defaults |
-
-Run `dwl -d` (or check `~/.local/state/dwl-run.log` with the log level raised)
-to see the applied values logged as `live: repeat R/D, accel S (profile), ...`.
-
-The `SIGHUP` handler only writes to a pipe; the event loop does the work, so the
-signal-safe constraint on `handlesig` still holds.
-
 ## somebar
 
 dwl prints its state to stdout in dwm's status format, and its `-s` flag pipes
