@@ -79,6 +79,7 @@ wlr-randr --output DP-1 --mode 1920x1080@239.76 >>"$HOME/.local/state/dwl-run.lo
 mako >/dev/null 2>&1 &
 swaybg -i "$HOME/Images/Backgrounds/autumn-mountains.jpg" -m fill >/dev/null 2>&1 &
 /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 >/dev/null 2>&1 &
+somebar-clock >/dev/null 2>&1 &
 exec somebar'
 
 dbus-run-session -- dwl -s "$DWL_STARTUP" 2>>"$LOG"

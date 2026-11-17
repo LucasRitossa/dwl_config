@@ -122,6 +122,13 @@ Tag indicators (`src/bar.cpp`) replace upstream's 1px client ticks:
 
 Both are in `config.hpp`; rebuild somebar after changing them.
 
+The right end of the bar is the **date and time**, from `somebar-clock`. dwl's
+status stream has no field for it, so the clock is a separate one-line writer:
+it waits for somebar's FIFO, then sends `status Mon 16 Nov 23:32` on every
+minute boundary (`somebar -c status ...`). It holds no state, so there is
+nothing to restart or clean up, and it exits on its own when the session ends.
+Change the format in `somebar-clock` and reload the session to apply it.
+
 ```sh
 cd somebar
 meson setup build --prefix="$HOME/.local"
@@ -172,6 +179,7 @@ start, that file has the reason, and the tty shows the tail of it.
 
 ```sh
 install -m 755 dwl-run "$HOME/.local/bin/dwl-run"
+install -m 755 somebar-clock "$HOME/.local/bin/somebar-clock"
 ```
 
 ## Packages

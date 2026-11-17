@@ -1,0 +1,26 @@
+#!/bin/sh
+# somebar-clock -- keep the date and time in somebar's status text.
+#
+# dwl's status stream (the startup command's stdin) only carries tags, title and
+# layout. The text at the right end of the bar comes from somebar's FIFO:
+#
+#   somebar -c status TEXT
+#
+# somebar creates that FIFO once the compositor is ready and unlinks it on exit,
+# so wait for it first, then refresh on each minute boundary. `somebar -c` opens
+# the FIFO per write: there is no descriptor to hold open and nothing to clean
+# up, and the first write after the session ends fails -- with `set -e` this
+# process then exits instead of lingering.
+set -eu
+
+fifo="${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is not set}/somebar-0"
+
+while [ ! -p "$fifo" ]; do
+	sleep 1
+done
+
+while :; do
+	somebar -c status "$(date '+%a %d %b %H:%M')"
+	sec=$(date +%S)           # 00-59, leading zero
+	sleep $((60 - ${sec#0}))  # wake exactly on the next minute
+done
