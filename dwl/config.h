@@ -121,16 +121,16 @@ static const enum libinput_config_tap_button_map button_map = LIBINPUT_CONFIG_TA
 #define SHCMD(cmd) { .v = (const char*[]){ "/bin/sh", "-c", cmd, NULL } }
 
 /* commands */
-static const char *termcmd[] = { "alacritty", NULL };
+static const char *termcmd[] = { "kitty", NULL };
 static const char *menucmd[] = { "fuzzel", NULL };
 
 static const Key keys[] = {
 	/* modifier                  key                  function          argument */
 	{ MODKEY,                    XKB_KEY_d,           spawn,            {.v = menucmd} },
 	{ MODKEY,                    XKB_KEY_Return,      spawn,            {.v = termcmd} },
-	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_r,           spawn,            SHCMD("alacritty -e htop") },
-	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_b,           spawn,            SHCMD("alacritty -e pulsemixer") },
-	{ MODKEY,                    XKB_KEY_r,           spawn,            SHCMD("alacritty -e lf") },
+	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_r,           spawn,            SHCMD("kitty htop") },
+	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_b,           spawn,            SHCMD("kitty pulsemixer") },
+	{ MODKEY,                    XKB_KEY_r,           spawn,            SHCMD("kitty lf") },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_e,           spawn,            SHCMD("grim -g \"$(slurp)\" - | wl-copy") },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_d,           spawn,            SHCMD("discord") },
 	{ MODKEY,                    XKB_KEY_w,           spawn,            SHCMD("librewolf") },

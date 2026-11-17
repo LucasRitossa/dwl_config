@@ -30,7 +30,7 @@ constexpr const char* font = "JetBrainsMono Nerd Font 14";
 
 constexpr ColorScheme colorInactive = {Color(0xaa, 0xaa, 0xaa), Color(0x1d, 0x20, 0x21)};
 constexpr ColorScheme colorActive = {Color(0xff, 0xff, 0xff), Color(0x1d, 0x20, 0x21)};
-constexpr const char* termcmd[] = {"alacritty", nullptr};
+constexpr const char* termcmd[] = {"kitty", nullptr};
 
 static std::vector<std::string> tagNames = {
 	"1", "2", "3",

@@ -32,7 +32,7 @@ directly. On top of upstream:
 - floating rules for `flameshot` and `qemu-system-x86_64`
 - media keys, screenshots via `grim` + `slurp` + `wl-copy`, lock via `swaylock`,
   and tag keys `Super+1..9`
-- `Super+Return` → `alacritty`, `Super+D` → `fuzzel`
+- `Super+Return` → `kitty`, `Super+D` → `fuzzel`
 
 Desktop-specific choices:
 
@@ -155,7 +155,7 @@ Build: `wlroots0.20` (pkg-config name `wlroots-0.20`), `libinput`, `libxkbcommon
 `wayland`, `wayland-protocols`, `pixman`, `libxcb` + `xcb-util-wm` (XWayland),
 `meson`/`ninja` for somebar.
 
-Runtime: `xorg-xwayland`, `alacritty`, `fuzzel`, `grim`, `slurp`, `wl-clipboard`,
+Runtime: `xorg-xwayland`, `kitty`, `fuzzel`, `grim`, `slurp`, `wl-clipboard`,
 `swaylock`, `papirus-icon-theme`, `wlr-randr`, `mako`, `swaybg`, `wtype`
 (clickable tags), `xdg-desktop-portal-wlr`, `playerctl`, `brightnessctl`.
 

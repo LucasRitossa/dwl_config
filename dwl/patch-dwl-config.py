@@ -84,7 +84,7 @@ src = re.sub(
 src = src.replace("#define MODKEY WLR_MODIFIER_ALT", "#define MODKEY WLR_MODIFIER_LOGO")
 src = src.replace(
     'static const char *termcmd[] = { "foot", NULL };',
-    'static const char *termcmd[] = { "alacritty", NULL };',
+    'static const char *termcmd[] = { "kitty", NULL };',
 )
 src = src.replace(
     'static const char *menucmd[] = { "wmenu-run", NULL };',
@@ -138,9 +138,9 @@ keys = r'''static const Key keys[] = {
 	/* modifier                  key                  function          argument */
 	{ MODKEY,                    XKB_KEY_d,           spawn,            {.v = menucmd} },
 	{ MODKEY,                    XKB_KEY_Return,      spawn,            {.v = termcmd} },
-	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_r,           spawn,            SHCMD("alacritty -e htop") },
-	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_b,           spawn,            SHCMD("alacritty -e pulsemixer") },
-	{ MODKEY,                    XKB_KEY_r,           spawn,            SHCMD("alacritty -e lf") },
+	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_r,           spawn,            SHCMD("kitty htop") },
+	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_b,           spawn,            SHCMD("kitty pulsemixer") },
+	{ MODKEY,                    XKB_KEY_r,           spawn,            SHCMD("kitty lf") },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_e,           spawn,            SHCMD("grim -g \"$(slurp)\" - | wl-copy") },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_d,           spawn,            SHCMD("discord") },
 	{ MODKEY,                    XKB_KEY_w,           spawn,            SHCMD("librewolf") },
