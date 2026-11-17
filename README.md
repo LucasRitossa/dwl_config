@@ -131,6 +131,20 @@ dwl's `-s` command owns dwl's stdout, so everything started there must redirect
 stdout or its output is parsed as bar status. `somebar` is `exec`'d last so it
 keeps the stream. `mako`, `swaybg` and the polkit agent are started alongside it.
 
+It also waits for the GPU before starting dwl. At boot the kernel runs on
+`simpledrm` (the firmware framebuffer, exposed as `card0`) and only hands the
+console to `nvidia-drm` (`card1`) a second or two later — after tty1 autologin
+has already fired. dwl launched in that window makes wlroots enumerate `card0`
+while the kernel is tearing it down, find no usable GPU, and exit with
+`Failed to open device: '/dev/dri/card0'`. `dwl-run` therefore waits (up to 20s)
+for the PCI card node under `/dev/dri/by-path/` and passes it as
+`WLR_DRM_DEVICES`, which sidesteps both the race and `simpledrm` entirely.
+
+Everything is logged to `~/.local/state/dwl-run.log` (last 200 lines kept):
+`dwl`'s own stderr, the `wlr-randr` mode change, and the state at startup —
+`/dev/dri`, the pinned device and the logind session. If a session fails to
+start, that file has the reason, and the tty shows the tail of it.
+
 ```sh
 install -m 755 dwl-run "$HOME/.local/bin/dwl-run"
 ```

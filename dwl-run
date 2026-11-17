@@ -25,17 +25,59 @@ pgrep -x pipewire       >/dev/null 2>&1 || pipewire       >/dev/null 2>&1 &
 pgrep -x pipewire-pulse >/dev/null 2>&1 || pipewire-pulse >/dev/null 2>&1 &
 pgrep -x wireplumber    >/dev/null 2>&1 || wireplumber    >/dev/null 2>&1 &
 
+# --- gpu ---------------------------------------------------------------------
+# This script can run before the NVIDIA modules have probed the card. At boot
+# the kernel boots on simpledrm (the firmware framebuffer, exposed as card0) and
+# only hands the console over to nvidia-drm (card1) a second or two later. dwl
+# launched from tty1 autologin lands in that window: wlroots enumerates DRM
+# cards once, tries to open card0 while the kernel is tearing it down, finds no
+# usable GPU and exits with
+#   Failed to open device: '/dev/dri/card0'
+# by-path only lists real PCI devices, so this waits for our GPU and names it
+# explicitly -- no race, and no chance of landing on simpledrm.
+card=
+tries=0
+while [ -z "$card" ] && [ "$tries" -lt 20 ]; do
+	for node in /dev/dri/by-path/*-card; do
+		[ -e "$node" ] || continue
+		card=$(readlink -f "$node")
+		break
+	done
+	[ -z "$card" ] || break
+	tries=$((tries + 1))
+	sleep 1
+done
+if [ -n "$card" ]; then
+	WLR_DRM_DEVICES=$card
+	export WLR_DRM_DEVICES
+fi
+
 # --- session -----------------------------------------------------------------
 # dwl's -s command owns dwl's stdout, and somebar reads that stream as its bar
-# status. Everything started here must therefore keep stdout clean: the mode
-# change is logged to a file so a failure stays diagnosable instead of silently
-# leaving DP-1 at its 60Hz preferred mode. somebar must be the last thing exec'd
-# so it keeps the stream.
+# status. Everything started here must therefore keep stdout clean. dwl's own
+# stderr goes to the log instead of the tty: a failed compositor used to scroll
+# past on a console that the next session overwrites.
 mkdir -p "$HOME/.local/state"
+LOG="$HOME/.local/state/dwl-run.log"
+[ -f "$LOG" ] && tail -n 200 "$LOG" > "$LOG.new" && mv "$LOG.new" "$LOG"
+{
+	printf '\n=== session start: %s ===\n' "$(date -Is)"
+	printf 'WLR_DRM_DEVICES=%s\n' "${WLR_DRM_DEVICES:-<unset: letting wlroots enumerate>}"
+	ls -l /dev/dri /dev/dri/by-path 2>&1
+	loginctl show-session "$XDG_SESSION_ID" -p Active -p Type -p State 2>&1 | tr '\n' ' '
+	printf '\n'
+} >> "$LOG"
+
 DWL_STARTUP='wlr-randr --output DP-1 --mode 1920x1080@239.76 >>"$HOME/.local/state/dwl-run.log" 2>&1
 mako >/dev/null 2>&1 &
 swaybg -i "$HOME/Images/Backgrounds/autumn-mountains.jpg" -m fill >/dev/null 2>&1 &
 /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 >/dev/null 2>&1 &
 exec somebar'
 
-exec dbus-run-session -- dwl -s "$DWL_STARTUP"
+dbus-run-session -- dwl -s "$DWL_STARTUP" 2>>"$LOG"
+status=$?
+if [ "$status" -ne 0 ]; then
+	printf '\ndwl exited with status %s. Tail of %s:\n\n' "$status" "$LOG" >&2
+	tail -n 25 "$LOG" >&2
+fi
+exit "$status"
