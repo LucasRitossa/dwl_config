@@ -124,10 +124,12 @@ Both are in `config.hpp`; rebuild somebar after changing them.
 
 The right end of the bar is the **date and time**, from `somebar-clock`. dwl's
 status stream has no field for it, so the clock is a separate one-line writer:
-it waits for somebar's FIFO, then sends `status Mon 16 Nov 23:32` on every
-minute boundary (`somebar -c status ...`). It holds no state, so there is
-nothing to restart or clean up, and it exits on its own when the session ends.
-Change the format in `somebar-clock` and reload the session to apply it.
+it waits for somebar's FIFO, then sends `status Mon 16 Nov 11:32 PM EST` on
+every minute boundary (`somebar -c status ...`). Eastern time and a 12-hour
+clock are pinned in the script, so the bar does not follow the machine's
+timezone. It holds no state, so there is nothing to restart or clean up, and it
+exits on its own when the session ends. Change the format in `somebar-clock` and
+reload the session to apply it.
 
 ```sh
 cd somebar

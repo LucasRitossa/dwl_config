@@ -11,7 +11,13 @@
 # the FIFO per write: there is no descriptor to hold open and nothing to clean
 # up, and the first write after the session ends fails -- with `set -e` this
 # process then exits instead of lingering.
+#
+# The clock is pinned to Eastern time and uses a 12-hour clock, so the bar reads
+# the same wherever the machine's local timezone points.
 set -eu
+
+TZ=America/New_York
+export TZ
 
 fifo="${XDG_RUNTIME_DIR:?XDG_RUNTIME_DIR is not set}/somebar-0"
 
@@ -20,7 +26,7 @@ while [ ! -p "$fifo" ]; do
 done
 
 while :; do
-	somebar -c status "$(date '+%a %d %b %H:%M')"
+	somebar -c status "$(date '+%a %d %b %-I:%M %p %Z')"
 	sec=$(date +%S)           # 00-59, leading zero
 	sleep $((60 - ${sec#0}))  # wake exactly on the next minute
 done
