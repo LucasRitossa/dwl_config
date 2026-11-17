@@ -247,17 +247,15 @@ void Bar::renderTags()
 			tag.state & TagState::Urgent);
 		renderComponent(tag.component);
 
-		if (tag.numClients == 0)
-			continue;
-
 		beginFg();
 		auto cellWidth = tag.component.width() + paddingX*2;
 		if (tag.state & TagState::Active) {
-			/* Selected tag: a thick line across the top of the cell. */
+			/* Selected tag: a thick line across the top of the cell, even
+			 * when it holds no clients. */
 			cairo_rectangle(_painter, tag.component.x, 0,
 				cellWidth, indicatorHeight);
 			cairo_fill(_painter);
-		} else {
+		} else if (tag.numClients > 0) {
 			/* Occupied but not selected: a dot at the top of the cell. */
 			double cx = tag.component.x + cellWidth / 2.0;
 			double cy = indicatorDotRadius + 0.5;
@@ -277,6 +275,10 @@ void Bar::renderStatus()
 	cairo_fill(_painter);
 
 	_x = start;
+	/* Record the hit-test origin even when the status text is empty: otherwise
+	 * _statusCmp.x keeps its initial 0 and Bar::click treats every click as a
+	 * status click, so tags, layout symbol and title never receive clicks. */
+	_statusCmp.x = start;
 	setColorScheme(colorInactive, false);
 	if (_statusCmp.width() > 0)
 	{
