@@ -13,6 +13,8 @@ frozen on the `laptop` branch.
 | `dwl/` | Complete dwl v0.9 source tree with our `config.h` and `dwl.c` changes. |
 | `somebar/` | [somebar](https://sr.ht/~raphi/somebar/) source with our `config.hpp`. |
 | `fuzzel/fuzzel.ini` | dmenu replacement, bound to `Super+D` via `menucmd`. |
+| `xdg-desktop-portal/portals.conf` | Picks the wlr backend for ScreenCast/Screenshot (dwl is not in its `UseIn` list). |
+| `xdg-desktop-portal-wlr/config` | Screencast chooser: `none`, so the single output captures without a dialog. |
 | `dwl-run` | Session launcher: environment, user services, output mode, dwl + bar. |
 
 ## dwl
@@ -139,6 +141,23 @@ while the kernel is tearing it down, find no usable GPU, and exit with
 `Failed to open device: '/dev/dri/card0'`. `dwl-run` therefore waits (up to 20s)
 for the PCI card node under `/dev/dri/by-path/` and passes it as
 `WLR_DRM_DEVICES`, which sidesteps both the race and `simpledrm` entirely.
+
+The startup command also publishes the session environment to D-Bus with
+`dbus-update-activation-environment`. That matters because `dbus-run-session`
+starts the session bus *before* dwl, so the bus never learns `WAYLAND_DISPLAY`:
+every D-Bus-activated service (the xdg-desktop-portal backends above all) then
+starts without a compositor to talk to and fails silently. Screen sharing in
+Discord was the visible symptom — an empty display picker.
+
+Screen sharing goes through `xdg-desktop-portal-wlr`; see
+`~/.config/xdg-desktop-portal/portals.conf` for why `dwl` has to name it
+explicitly, and `~/.config/xdg-desktop-portal-wlr/config` for the one-output
+`chooser_type=none` choice. Both are tracked here:
+
+```sh
+install -Dm 644 xdg-desktop-portal/portals.conf "$HOME/.config/xdg-desktop-portal/portals.conf"
+install -Dm 644 xdg-desktop-portal-wlr/config "$HOME/.config/xdg-desktop-portal-wlr/config"
+```
 
 Everything is logged to `~/.local/state/dwl-run.log` (last 200 lines kept):
 `dwl`'s own stderr, the `wlr-randr` mode change, and the state at startup —

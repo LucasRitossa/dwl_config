@@ -57,6 +57,12 @@ fi
 # status. Everything started here must therefore keep stdout clean. dwl's own
 # stderr goes to the log instead of the tty: a failed compositor used to scroll
 # past on a console that the next session overwrites.
+#
+# dbus-run-session starts the session bus before dwl exists, so the bus never
+# inherits WAYLAND_DISPLAY. Anything D-Bus activates (xdg-desktop-portal-wlr in
+# particular) then cannot reach the compositor, and screen sharing silently gets
+# no sources. The startup command below runs inside dwl's environment, which is
+# the first point where WAYLAND_DISPLAY is known, so it publishes it to the bus.
 mkdir -p "$HOME/.local/state"
 LOG="$HOME/.local/state/dwl-run.log"
 [ -f "$LOG" ] && tail -n 200 "$LOG" > "$LOG.new" && mv "$LOG.new" "$LOG"
@@ -68,7 +74,8 @@ LOG="$HOME/.local/state/dwl-run.log"
 	printf '\n'
 } >> "$LOG"
 
-DWL_STARTUP='wlr-randr --output DP-1 --mode 1920x1080@239.76 >>"$HOME/.local/state/dwl-run.log" 2>&1
+DWL_STARTUP='dbus-update-activation-environment WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_RUNTIME_DIR >>"$HOME/.local/state/dwl-run.log" 2>&1
+wlr-randr --output DP-1 --mode 1920x1080@239.76 >>"$HOME/.local/state/dwl-run.log" 2>&1
 mako >/dev/null 2>&1 &
 swaybg -i "$HOME/Images/Backgrounds/autumn-mountains.jpg" -m fill >/dev/null 2>&1 &
 /usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 >/dev/null 2>&1 &

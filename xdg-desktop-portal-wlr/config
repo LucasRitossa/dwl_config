@@ -1,0 +1,7 @@
+[screencast]
+# One output (DP-1), and Discord cannot render a monitor list on Wayland anyway:
+# it asks the portal for a stream and the portal answers. "none" captures the
+# only output and starts immediately. Swap in a picker if HDMI-A-1 comes back:
+#   chooser_type=default
+#   chooser_cmd=slurp -f 'Monitor: %o' -or
+chooser_type=none
