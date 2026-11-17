@@ -4,6 +4,9 @@
 #pragma once
 #include "common.hpp"
 
+#define WTYPE "/usr/bin/wtype"
+#define MODKEY "alt"
+
 constexpr bool topbar = true;
 
 constexpr int paddingX = 10;
@@ -23,5 +26,7 @@ static std::vector<std::string> tagNames = {
 };
 
 constexpr Button buttons[] = {
+	{ ClkTagBar,       BTN_LEFT,   view,       {0} },
+	{ ClkTagBar,       BTN_RIGHT,  tag,        {0} },
 	{ ClkStatusText,   BTN_RIGHT,  spawn,      {.v = termcmd} },
 };

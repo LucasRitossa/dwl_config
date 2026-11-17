@@ -85,6 +85,21 @@ static int statusFifoFd {-1};
 static int statusFifoWriter {-1};
 static bool quitting {false};
 
+// update keybindings to match your dwl
+void view(Monitor& m, const Arg& arg)
+{
+	char tag[2];
+	snprintf(tag, 2, "%i", arg.ui + 1);
+	if(fork() == 0)
+		execl(WTYPE, "wtype", "-M", MODKEY, tag, (char*)NULL);
+}
+void tag(Monitor& m, const Arg& arg)
+{
+	char tag[2];
+	snprintf(tag, 2, "%i", arg.ui + 1);
+	if(fork() == 0)
+		execl(WTYPE, "wtype", "-M", MODKEY, "-M", "shift", tag, (char*)NULL);
+}
 void spawn(Monitor&, const Arg& arg)
 {
 	if (fork() == 0) {

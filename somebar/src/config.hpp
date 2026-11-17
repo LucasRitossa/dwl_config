@@ -1,14 +1,21 @@
 // somebar - dwl bar
 // See LICENSE file for copyright and license details.
 //
-// Active configuration. config.def.hpp is kept as the upstream reference.
+// Active configuration. config.def.hpp is kept as the upstream reference
+// (with contrib/clickable-tags-using-wtype.patch applied).
 // Palette matches dwl/config.h, fuzzel.ini and ~/.config/dwm_config/config.h:
 //   bg 1D2021 / fg aaaaaa / selected ffffff / accent 30b27a
 
 #pragma once
 #include "common.hpp"
 
-constexpr bool topbar = true;
+// Clickable tags without the dwl IPC patch: clicks are turned into the
+// keystrokes dwl already binds (Super+N / Super+Shift+N) via wtype.
+// MODKEY must match dwl's MODKEY (WLR_MODIFIER_LOGO -> "logo").
+#define WTYPE "/usr/bin/wtype"
+#define MODKEY "logo"
+
+constexpr bool topbar = false;
 
 constexpr int paddingX = 10;
 constexpr int paddingY = 2;
@@ -27,5 +34,7 @@ static std::vector<std::string> tagNames = {
 };
 
 constexpr Button buttons[] = {
+	{ ClkTagBar,       BTN_LEFT,   view,       {0} },
+	{ ClkTagBar,       BTN_RIGHT,  tag,        {0} },
 	{ ClkStatusText,   BTN_RIGHT,  spawn,      {.v = termcmd} },
 };

@@ -23,7 +23,11 @@ directly. On top of upstream:
 - Nordic-ish palette: background `#1D2021`, border `#282828`, focus/accent
   `#30B27A`, urgent `#FB4934`
 - 2px borders, no snapping, sloppy focus
-- `Super` as `MODKEY`; `caps:escape` and swapped `Alt`/`Super` for XKB
+- `Super` as `MODKEY`, matching dwm's `Mod4Mask` — the physical Super key. XKB
+  is `us` + `caps:escape` only: the `altwin:swap_lalt_lwin` option this config
+  used to carry put Mod4 on the physical *Alt* key, which broke `Super+Return`
+  (dwl saw `Alt+Return`) and `Ctrl+Alt+F1` (dwl saw `Ctrl+Super+F1`). X11 on this
+  machine has no XKB options either, so the swap was pure muscle-memory drift.
 - tile + floating layouts, `Super+Tab` cycles them
 - floating rules for `flameshot` and `qemu-system-x86_64`
 - media keys, screenshots via `grim` + `slurp` + `wl-copy`, lock via `swaylock`,
@@ -47,8 +51,8 @@ Desktop-specific choices:
 Source changes in `dwl.c`:
 
 - Fullscreen fills the monitor's usable area instead of the whole output, so the
-  top `somebar` stays visible. If the bar appears, disappears, or is resized, the
-  fullscreen window follows the new usable area. (Same intent as the
+  bottom `somebar` stays visible. If the bar appears, disappears, or is resized,
+  the fullscreen window follows the new usable area. (Same intent as the
   `dwm-actualfullscreen` patch carried in `~/.config/dwm_config`.)
 - While a window is fullscreen, `Super+j` / `Super+k` cycles windows and moves
   fullscreen to the newly focused window.
@@ -83,14 +87,23 @@ dwl prints its state to stdout in dwm's status format, and its `-s` flag pipes
 that into the startup command's stdin. somebar reads exactly that stream, so the
 bar needs **no IPC patch and no fork**: `dwl -s somebar` is enough.
 
-That one-way stream is also the limitation: clicking tags to switch to them needs
-the reverse channel (a Wayland protocol implemented by an `ipc` patch on dwl plus
-`contrib/ipc.patch` in somebar). We deliberately don't carry that patch, so the
-bar is display-only — same as `dwm_config`, where all `ClkTagBar` bindings were
-removed. Layout switching is `Super+Tab` instead of clicking the layout symbol.
+That stream is one-way, so clicks are restored the cheap way instead:
+`contrib/clickable-tags-using-wtype.patch` (applied to the vendored tree) turns a
+click into the keystrokes dwl already binds, via `wtype`:
+
+| Click | Sends | Effect |
+| --- | --- | --- |
+| left on tag *N* | `Super+N` | `view` that tag |
+| right on tag *N* | `Super+Shift+N` | move the focused window to tag *N* |
+
+This depends on two things staying true: `MODKEY` in `config.hpp` must match
+dwl's `MODKEY` (`logo`), and the `Super+1..9` tag bindings must stay in
+`dwl/config.h`. The full IPC protocol (clicking without synthesising keys) is
+still the documented upgrade path if `wtype` ever gets in the way.
 
 `somebar/src/config.hpp` is the active config (palette matching `dwl/config.h`,
-JetBrainsMono Nerd Font 14, top bar). `config.def.hpp` is the upstream reference.
+JetBrainsMono Nerd Font 14, **bottom** bar). `config.def.hpp` is the upstream
+reference plus that contrib patch.
 
 ```sh
 cd somebar
@@ -120,8 +133,8 @@ Build: `wlroots0.20` (pkg-config name `wlroots-0.20`), `libinput`, `libxkbcommon
 `meson`/`ninja` for somebar.
 
 Runtime: `xorg-xwayland`, `alacritty`, `fuzzel`, `grim`, `slurp`, `wl-clipboard`,
-`swaylock`, `papirus-icon-theme`, `wlr-randr`, `mako`, `swaybg`,
-`xdg-desktop-portal-wlr`, `playerctl`, `brightnessctl`.
+`swaylock`, `papirus-icon-theme`, `wlr-randr`, `mako`, `swaybg`, `wtype`
+(clickable tags), `xdg-desktop-portal-wlr`, `playerctl`, `brightnessctl`.
 
 ## Booting into dwl (not enabled yet)
 
