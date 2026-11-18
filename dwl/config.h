@@ -134,6 +134,9 @@ static const Key keys[] = {
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_e,           spawn,            SHCMD("grim -g \"$(slurp)\" - | wl-copy") },
 	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_d,           spawn,            SHCMD("discord") },
 	{ MODKEY,                    XKB_KEY_w,           spawn,            SHCMD("librewolf") },
+	/* dwl resets an output to its preferred mode whenever it re-creates it,
+	 * and the 240Hz VG259QM prefers 60Hz -- reapply the fast mode by hand. */
+	{ MODKEY|WLR_MODIFIER_SHIFT, XKB_KEY_f,           spawn,            SHCMD("refresh-mode") },
 
 	{ MODKEY,                    XKB_KEY_j,           focusstack,       {.i = +1} },
 	{ MODKEY,                    XKB_KEY_k,           focusstack,       {.i = -1} },

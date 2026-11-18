@@ -1,0 +1,25 @@
+#!/bin/sh
+# Put the 240Hz panel back on its fast mode.
+#
+# dwl applies an output's *preferred* mode every time it creates one, and the
+# ASUS VG259QM advertises 60Hz as preferred. Any re-detect -- a DPMS wake, a
+# hotplug, a nudged cable -- silently leaves DP-1 at 60Hz. dwl-run sets the
+# mode at session start; this is the same fix for the middle of a session.
+#
+# Bound to Super+Shift+F in dwl/config.h, so it can also be run on its own:
+#   refresh-mode [output]
+set -u
+
+out=${1:-DP-1}
+mode=1920x1080@239.76
+
+if ! wlr-randr --output "$out" --mode "$mode" >/dev/null 2>&1; then
+	notify-send "Display mode" "Could not set $out to $mode" 2>/dev/null
+	exit 1
+fi
+
+current=$(wlr-randr --output "$out" 2>/dev/null | awk '/ \(current\)/ { print $1 " @ " $3 "Hz"; exit }')
+# Diagnostics go to stderr: dwl's stdout is somebar's status stream, and a
+# spawned child inherits it, so nothing here may write to stdout.
+printf 'refresh-mode: %s now %s (wanted %s)\n' "$out" "${current:-?}" "$mode" >&2
+notify-send "Display mode" "$out: ${current:-set to $mode}" 2>/dev/null

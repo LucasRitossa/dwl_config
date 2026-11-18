@@ -16,6 +16,7 @@ frozen on the `laptop` branch.
 | `xdg-desktop-portal/portals.conf` | Picks the wlr backend for ScreenCast/Screenshot (dwl is not in its `UseIn` list). |
 | `xdg-desktop-portal-wlr/config` | Screencast chooser: `none`, so the single output captures without a dialog. |
 | `dwl-run` | Session launcher: environment, user services, output mode, dwl + bar. |
+| `refresh-mode` | Re-applies DP-1's 240Hz mode; called by `dwl-run` and `Super+Shift+F`. |
 
 ## dwl
 
@@ -34,7 +35,8 @@ directly. On top of upstream:
 - floating rules for `flameshot` and `qemu-system-x86_64`
 - media keys, screenshots via `grim` + `slurp` + `wl-copy`, lock via `swaylock`,
   and tag keys `Super+1..9`
-- `Super+Return` → `kitty`, `Super+D` → `fuzzel`
+- `Super+Return` → `kitty`, `Super+D` → `fuzzel`, `Super+Shift+F` → reapply the
+  240Hz mode (see *Monitor rules* below)
 
 Desktop-specific choices:
 
@@ -42,7 +44,10 @@ Desktop-specific choices:
   X11-only clients need it; dwl spawns Xwayland on demand.
 - **Monitor rules** pin `DP-1` (left, 240Hz panel) at `0,0` and `HDMI-A-1`
   (right) at `1920,0`. dwl always uses the *preferred* mode and DP-1's preferred
-  mode is 60Hz, so `dwl-run` sets `1920x1080@239.76` with `wlr-randr` at startup.
+  mode is 60Hz, so `refresh-mode` sets `1920x1080@239.76` with `wlr-randr`.
+  `dwl-run` calls it once at startup, and `Super+Shift+F` calls it again — dwl
+  re-applies the preferred mode whenever it re-creates an output (DPMS wake,
+  hotplug, nudged cable), which drops the panel back to 60Hz mid-session.
 - The pointer block (`tap_to_click`, click/scroll methods, …) is kept even though
   this is a desktop: `dwl.c` applies every one of those symbols to each libinput
   pointer device, so removing them fails the build. They report unsupported for a
@@ -175,12 +180,13 @@ install -Dm 644 xdg-desktop-portal-wlr/config "$HOME/.config/xdg-desktop-portal-
 ```
 
 Everything is logged to `~/.local/state/dwl-run.log` (last 200 lines kept):
-`dwl`'s own stderr, the `wlr-randr` mode change, and the state at startup —
+`dwl`'s own stderr, the `refresh-mode` mode change, and the state at startup —
 `/dev/dri`, the pinned device and the logind session. If a session fails to
 start, that file has the reason, and the tty shows the tail of it.
 
 ```sh
 install -m 755 dwl-run "$HOME/.local/bin/dwl-run"
+install -m 755 refresh-mode "$HOME/.local/bin/refresh-mode"
 install -m 755 somebar-clock "$HOME/.local/bin/somebar-clock"
 ```
 
