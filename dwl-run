@@ -16,6 +16,7 @@
 export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=dwl
 export MOZ_ENABLE_WAYLAND=1                 # Firefox-family apps
+export GTK_THEME='Adwaita:dark'             # dark GTK apps and prefers-color-scheme
 export ELECTRON_OZONE_PLATFORM_HINT=wayland # discord and other Electron apps
 export __GLX_VENDOR_LIBRARY_NAME=nvidia     # Xwayland GLX -> the 3070
 export LIBVA_DRIVER_NAME=nvidia             # VA-API decode for Xwayland apps
