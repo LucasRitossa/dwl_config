@@ -14,6 +14,16 @@ const zwlr_layer_surface_v1_listener Bar::_layerSurfaceListener = {
 	[](void* owner, zwlr_layer_surface_v1*, uint32_t serial, uint32_t width, uint32_t height)
 	{
 		static_cast<Bar*>(owner)->layerSurfaceConfigure(serial, width, height);
+	},
+	/* closed: the compositor stopped showing this surface, in practice because
+	 * its output was unplugged or powered off. The slot must not stay empty:
+	 * libwayland aborts the process when an event has no listener, which took
+	 * the bar down on every monitor for the rest of the session. Drop the
+	 * surface instead. The monitor goes away with its wl_output global, and if
+	 * the output is still there the next status update shows the bar again. */
+	[](void* owner, zwlr_layer_surface_v1*)
+	{
+		static_cast<Bar*>(owner)->hide();
 	}
 };
 const wl_callback_listener Bar::_frameListener = {

@@ -127,6 +127,22 @@ Tag indicators (`src/bar.cpp`) replace upstream's 1px client ticks:
 
 Both are in `config.hpp`; rebuild somebar after changing them.
 
+Two fixes in `src/` keep the bar attached across monitor hotplug:
+
+- `bar.cpp` fills the `closed` slot of the layer-surface listener. When an
+  output goes away (unplug, or the monitor is switched off) dwl closes the bar's
+  layer surface, and libwayland **aborts the process** if an event has no
+  listener — `listener function for opcode 1 of zwlr_layer_surface_v1 is NULL`
+  in `~/.local/state/dwl-run.log`, exit status 134. The bar went down there and
+  stayed down for the rest of the session, on every monitor, because dwl starts
+  it only once. The handler drops that surface; the monitor then leaves with its
+  `wl_output` global.
+- `main.cpp` replays dwl's status lines for a monitor name it does not know yet
+  (`pendingStatus`). dwl prints a new output's status in `createmon()` *before*
+  the `wl_output` global exists, so those lines used to be dropped: a replugged
+  monitor's bar only appeared at dwl's next status print, i.e. after a window
+  focus or tag change, which on an idle desktop can be a long wait.
+
 The right end of the bar is the **date and time**, from `somebar-clock`. dwl's
 status stream has no field for it, so the clock is a separate one-line writer:
 it waits for somebar's FIFO, then sends `status Mon 16 Nov 11:32 PM EST` on

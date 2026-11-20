@@ -6,6 +6,7 @@
 #include <sstream>
 #include <list>
 #include <optional>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 #include <fcntl.h>
@@ -56,6 +57,7 @@ static void setupStatusFifo();
 static void onStatus();
 static void onStdin();
 static void handleStdin(const std::string& line);
+static void replayPendingStatus(const std::string& monName);
 static void updateVisibility(const std::string& name, bool(*updater)(bool));
 static void onGlobalAdd(void*, wl_registry* registry, uint32_t name, const char* interface, uint32_t version);
 static void onGlobalRemove(void*, wl_registry* registry, uint32_t name);
@@ -77,6 +79,9 @@ static std::vector<std::pair<uint32_t, wl_output*>> uninitializedOutputs;
 static std::list<Seat> seats;
 static Monitor* selmon;
 static std::string lastStatus;
+/* Latest dwl status line per command, for output names no monitor carries yet.
+ * See replayPendingStatus(). */
+static std::unordered_map<std::string, std::unordered_map<std::string, std::string>> pendingStatus;
 static std::string statusFifoName;
 static std::vector<pollfd> pollfds;
 static std::array<int, 2> signalSelfPipe;
@@ -126,6 +131,7 @@ static const struct zxdg_output_v1_listener xdgOutputListener = {
 		auto& monitor = *static_cast<Monitor*>(mp);
 		monitor.xdgName = name;
 		zxdg_output_v1_destroy(xdgOutput);
+		replayPendingStatus(monitor.xdgName);
 	},
 	.description = [](void*, zxdg_output_v1*, const char*) { },
 };
@@ -311,8 +317,10 @@ static void handleStdin(const std::string& line)
 	auto mon = std::find_if(begin(monitors), end(monitors), [&](const Monitor& mon) {
 		return mon.xdgName == monName;
 	});
-	if (mon == end(monitors))
+	if (mon == end(monitors)) {
+		pendingStatus[monName][command] = line;
 		return;
+	}
 	if (command == "title") {
 		auto title = std::string {};
 		stream >> std::ws;
@@ -348,6 +356,22 @@ static void handleStdin(const std::string& line)
 	}
 	mon->hasData = true;
 	updatemon(*mon);
+}
+
+/* dwl prints a new output's status before that output's wl_output global
+ * exists, so those lines arrive before any monitor carries the name and
+ * handleStdin() parks them in pendingStatus. Deliver them once the name is
+ * known. Without this a hot-plugged output has no bar until dwl next prints
+ * its status, which on an idle desktop can take a long time. */
+void replayPendingStatus(const std::string& monName)
+{
+	auto pending = pendingStatus.extract(monName);
+	if (pending.empty()) {
+		return;
+	}
+	for (const auto& entry : pending.mapped()) {
+		handleStdin(entry.second);
+	}
 }
 
 const std::string prefixStatus = "status ";
