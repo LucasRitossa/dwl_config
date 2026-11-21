@@ -1,0 +1,24 @@
+# mako -- notification daemon.
+# Palette matches dwl/config.h and somebar/src/config.hpp:
+#   bg 1d2021 / fg ebdbb2 / accent 30b27a
+
+font=JetBrainsMono Nerd Font 11
+background-color=#1D2021F2
+text-color=#EBDBB2
+border-color=#30B27A
+border-size=2
+border-radius=8
+width=380
+height=140
+padding=10
+margin=10
+anchor=top-right
+
+icons=1
+max-icon-size=96
+icon-border-radius=6
+icon-path=/usr/share/icons/Papirus:/usr/share/icons/hicolor
+
+markup=1
+# Per-notification timeouts are honoured; spotify-notify asks for 5 seconds.
+default-timeout=0

@@ -1,0 +1,167 @@
+#!/bin/sh
+# spotify-notify -- pop up the album cover when the Spotify track changes.
+#
+# Watches MPRIS metadata through playerctl. Each change in title/artist/album/
+# cover sends one mako notification with the cover from mpris:artUrl. Spotify
+# serves that as an https://i.scdn.co image, so it is downloaded once into the
+# cache and handed to notify-send as an icon. The popup expires after 5 seconds
+# and reuses the previous notification id, so skipping tracks replaces the
+# popup instead of stacking them.
+#
+# Only `spotify` (the desktop app) and `spotifyd` (the headless Connect daemon)
+# are watched. Other MPRIS players -- browsers, mpv -- are ignored. The current
+# track is recorded at startup, so launching the session does not fire a
+# notification; only a later track change does.
+#
+# Usage: spotify-notify [--once]
+#   --once   notify about the current track and exit (for testing)
+
+set -u
+
+TAB=$(printf '\t')
+FMT="{{playerName}}${TAB}{{title}}${TAB}{{artist}}${TAB}{{album}}${TAB}{{mpris:artUrl}}"
+
+runtime="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+cache="${XDG_CACHE_HOME:-$HOME/.cache}/spotify-notify"
+id_file="$runtime/spotify-notify.id"
+fallback_icon=/usr/share/icons/Papirus/128x128/apps/spotify.svg
+[ -f "$fallback_icon" ] || fallback_icon=spotify
+
+mkdir -p "$cache" 2>/dev/null || true
+# Art URLs are immutable, so old covers are just cache litter.
+find "$cache" -type f -name '*.jpg' -mtime +14 -delete 2>/dev/null || true
+
+is_spotify() {
+	case "$1" in
+	spotify|spotifyd) return 0 ;;
+	*) return 1 ;;
+	esac
+}
+
+last_for() {
+	printf '%s/spotify-notify.%s.last' "$runtime" "$1"
+}
+
+read_track() {
+	playerctl --player="$1" metadata --format "$FMT" 2>/dev/null
+}
+
+# mako lets Pango parse notification text by default, so & < > in titles must
+# be escaped or they are treated as markup.
+escape() {
+	printf '%s' "$1" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g'
+}
+
+notify() {
+	title=$1 artist=$2 album=$3 art_url=$4
+	[ -n "$title" ] || return 0
+
+	icon=$fallback_icon
+	case "$art_url" in
+	file://*)
+		icon=${art_url#file://}
+		;;
+	http://*|https://*)
+		key=$(printf '%s' "$art_url" | sha256sum | cut -d' ' -f1)
+		icon="$cache/$key.jpg"
+		if [ ! -s "$icon" ]; then
+			part="$icon.$$.part"
+			if curl -fsSL --max-time 10 -o "$part" "$art_url" 2>/dev/null &&
+				[ -s "$part" ]; then
+				mv -f "$part" "$icon"
+			else
+				rm -f "$part"
+				icon=$fallback_icon
+			fi
+		fi
+		;;
+	esac
+	[ -f "$icon" ] || icon=$fallback_icon
+
+	body=$artist
+	if [ -n "$album" ]; then
+		if [ -n "$body" ]; then
+			body="$body — $album"
+		else
+			body=$album
+		fi
+	fi
+
+	replace=
+	[ -s "$id_file" ] && replace=$(cat "$id_file")
+	set -- --app-name=Spotify --icon="$icon" \
+		--hint="string:image-path:$icon" --expire-time=5000 --print-id
+	[ -z "$replace" ] || set -- "$@" --replace-id="$replace"
+	set -- "$@" -- "$(escape "$title")" "$(escape "$body")"
+
+	id=$(notify-send "$@" 2>/dev/null) || return 0
+	[ -z "$id" ] || printf '%s' "$id" > "$id_file"
+}
+
+# show_line LINE notifies about a track line, returning nonzero when the
+# player is not playing so the caller does not record a paused selection.
+show_line() {
+	IFS=$TAB read -r player title artist album art_url <<EOF
+$1
+EOF
+	[ "$(playerctl --player="$player" status 2>/dev/null)" = Playing ] || return 1
+	notify "$title" "$artist" "$album" "$art_url"
+}
+
+seed() {
+	for p in $(playerctl -l 2>/dev/null); do
+		is_spotify "$p" || continue
+		line=$(read_track "$p")
+		[ -n "$line" ] || continue
+		printf '%s' "$line" > "$(last_for "$p")"
+	done
+}
+
+watch() {
+	# playerctl 2.4.1's `--all-players --follow` emits the first track and
+	# then goes quiet, and one follow stream per player cannot see players
+	# that appear later, so poll instead. Player names are cheap to list and
+	# one second is well inside the popup's five second life.
+	while :; do
+		for p in $(playerctl -l 2>/dev/null); do
+			is_spotify "$p" || continue
+			line=$(read_track "$p")
+			[ -n "$line" ] || continue
+			last=$(last_for "$p")
+			if [ "$line" = "$(cat "$last" 2>/dev/null)" ]; then
+				continue
+			fi
+			# Only record a change once it actually played: a track
+			# selected while paused should still pop up on Play.
+			if show_line "$line"; then
+				printf '%s' "$line" > "$last"
+			fi
+		done
+		sleep 1
+	done
+}
+
+once() {
+	for p in $(playerctl -l 2>/dev/null); do
+		is_spotify "$p" || continue
+		line=$(read_track "$p")
+		[ -n "$line" ] || continue
+		IFS=$TAB read -r player title artist album art_url <<EOF
+$line
+EOF
+		notify "$title" "$artist" "$album" "$art_url"
+		return 0
+	done
+	printf 'spotify-notify: no Spotify player found\n' >&2
+	return 1
+}
+
+case "${1:-}" in
+--once)
+	once
+	;;
+*)
+	seed
+	watch
+	;;
+esac

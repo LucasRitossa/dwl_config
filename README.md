@@ -17,6 +17,8 @@ frozen on the `laptop` branch.
 | `xdg-desktop-portal-wlr/config` | Screencast chooser: `none`, so the single output captures without a dialog. |
 | `dwl-run` | Session launcher: environment, user services, output mode, dwl + bar. |
 | `refresh-mode` | Re-applies DP-1's 240Hz mode; called by `dwl-run` and `Super+Shift+F`. |
+| `spotify-notify` | mako popup with the album cover when the Spotify track changes. |
+| `mako/config` | Notification theme: Nordic palette, 96px icons. |
 
 ## dwl
 
@@ -159,6 +161,46 @@ ninja -C build
 ninja -C build install
 ```
 
+## spotify-notify
+
+`spotify-notify` shows a mako popup when the Spotify track changes: the title,
+`artist — album`, and the album cover, for five seconds.
+
+It reads MPRIS metadata through `playerctl` once a second (playerctl 2.4.1's
+`--all-players --follow` emits the first track and then goes quiet) and reacts
+only to `spotify` (the desktop app) and `spotifyd` (the headless Connect
+daemon), so browser media and other players do not trigger it. The current track
+is recorded at startup, which means logging in does not produce a popup; only a
+later track change does.
+
+`mpris:artUrl` points at `i.scdn.co`. The cover is downloaded once into
+`~/.cache/spotify-notify/<sha256>.jpg` (covers older than two weeks are pruned)
+and falls back to the Papirus Spotify icon if the fetch fails. Notifications
+reuse the previous mako id via `--replace-id`, so skipping tracks replaces the
+popup instead of stacking them.
+
+The popup asks for `--expire-time=5000`. The mako config below leaves
+`ignore-timeout` off, so mako honours the five seconds; other notifications
+still use mako's default timeout. `--once` sends the current track and exits, for
+testing:
+
+```sh
+spotify-notify --once
+```
+
+`mako/config` themes these popups and every other notification: Nordic colours
+matching dwl and somebar, JetBrainsMono 11, 96px icons, top-right, 10px margins.
+
+```sh
+install -m 755 spotify-notify "$HOME/.local/bin/spotify-notify"
+install -Dm 644 mako/config "$HOME/.config/mako/config"
+makoctl reload
+```
+
+`spotify-notify` is started by `dwl-run` after `mako`. It needs `playerctl`,
+`curl`, `libnotify` (`notify-send`) and an icon theme that has `spotify`
+(Papirus is the fallback path); all are in the runtime packages below.
+
 ## dwl-run
 
 Starts the session. It sets the Wayland/EGL environment, starts `pipewire`,
@@ -167,7 +209,8 @@ Artix), then runs `dbus-run-session -- dwl -s ...`.
 
 dwl's `-s` command owns dwl's stdout, so everything started there must redirect
 stdout or its output is parsed as bar status. `somebar` is `exec`'d last so it
-keeps the stream. `mako`, `swaybg` and the polkit agent are started alongside it.
+keeps the stream. `mako`, `spotify-notify`, `swaybg` and the polkit agent are
+started alongside it.
 
 It also waits for the GPU before starting dwl. At boot the kernel runs on
 `simpledrm` (the firmware framebuffer, exposed as `card0`) and only hands the
@@ -204,6 +247,7 @@ start, that file has the reason, and the tty shows the tail of it.
 install -m 755 dwl-run "$HOME/.local/bin/dwl-run"
 install -m 755 refresh-mode "$HOME/.local/bin/refresh-mode"
 install -m 755 somebar-clock "$HOME/.local/bin/somebar-clock"
+install -m 755 spotify-notify "$HOME/.local/bin/spotify-notify"
 ```
 
 ## Packages
@@ -214,7 +258,8 @@ Build: `wlroots0.20` (pkg-config name `wlroots-0.20`), `libinput`, `libxkbcommon
 
 Runtime: `xorg-xwayland`, `kitty`, `fuzzel`, `grim`, `slurp`, `wl-clipboard`,
 `swaylock`, `papirus-icon-theme`, `wlr-randr`, `mako`, `swaybg`, `wtype`
-(clickable tags), `xdg-desktop-portal-wlr`, `playerctl`, `brightnessctl`.
+(clickable tags), `xdg-desktop-portal-wlr`, `playerctl`, `brightnessctl`,
+`curl`, `libnotify`.
 
 ## Boot
 
