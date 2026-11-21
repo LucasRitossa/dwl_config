@@ -18,7 +18,7 @@ frozen on the `laptop` branch.
 | `dwl-run` | Session launcher: environment, user services, output mode, dwl + bar. |
 | `refresh-mode` | Re-applies DP-1's 240Hz mode; called by `dwl-run` and `Super+Shift+F`. |
 | `spotify-notify` | mako popup with the album cover when the Spotify track changes. |
-| `mako/config` | Notification theme: Nordic palette, 96px icons. |
+| `mako/config` | Notification theme: Nordic palette, 62px icons. |
 
 ## dwl
 
@@ -189,7 +189,8 @@ spotify-notify --once
 ```
 
 `mako/config` themes these popups and every other notification: Nordic colours
-matching dwl and somebar, JetBrainsMono 11, 96px icons, top-right, 10px margins.
+matching dwl and somebar, JetBrainsMono 11, 62px icons, 247px wide, top-right,
+10px margins.
 
 ```sh
 install -m 755 spotify-notify "$HOME/.local/bin/spotify-notify"

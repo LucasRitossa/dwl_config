@@ -6,17 +6,17 @@ font=JetBrainsMono Nerd Font 11
 background-color=#1D2021F2
 text-color=#EBDBB2
 border-color=#30B27A
-border-size=2
-border-radius=8
-width=380
-height=140
-padding=10
+border-size=1
+border-radius=5
+width=247
+height=91
+padding=7
 margin=10
 anchor=top-right
 
 icons=1
-max-icon-size=96
-icon-border-radius=6
+max-icon-size=62
+icon-border-radius=4
 icon-path=/usr/share/icons/Papirus:/usr/share/icons/hicolor
 
 markup=1
